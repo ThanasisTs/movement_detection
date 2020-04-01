@@ -1,0 +1,3 @@
+start_threshold: 24
+smooth_service_name: "trajectory_smoothing"
+filter_service_name: "static_points_filtering"
