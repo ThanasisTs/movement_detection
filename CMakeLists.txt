@@ -12,7 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   trajectory_execution_msgs
-  trajectory_point_process_msgs
+  trajectory_process_utils_srvs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -64,15 +64,14 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## Generate actions in the 'action' folder
 # add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
+#   DIRECTORY action
+#   FILES Bezier.action
 # )
 
 ## Generate added messages and services with any dependencies listed here
 # generate_messages(
 #   DEPENDENCIES
-#   geometry_msgs#   trajectory_execution_msgs
+#   actionlib_msgs std_msgs
 # )
 
 ################################################
@@ -107,7 +106,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES movement_detection
-#  CATKIN_DEPENDS geometry_msgs roscpp rospy trajectory_execution_msgs
+#  CATKIN_DEPENDS actionlib_msgs geometry_msgs roscpp rospy trajectory_execution_msgs
 #  DEPENDS system_lib
 )
 

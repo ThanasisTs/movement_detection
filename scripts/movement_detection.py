@@ -3,7 +3,7 @@ import rospy
 from trajectory_execution_msgs.msg import PointArray
 from keypoint_3d_matching_msgs.msg import Keypoint3d_list
 from geometry_msgs.msg import Point
-from trajectory_point_process_msgs.srv import *
+from trajectory_process_utils_srvs.srv import *
 
 import numpy as np
 
@@ -106,11 +106,19 @@ def movement_detection_node(start_threshold=24):
 	# Use the following subscription if you use the movement detection function
 	# using a geometry_msgs/Point msg for each point
 	sub = rospy.Subscriber('raw_points', Point, callback, start_threshold)
+	pub = rospy.Publisher('/trajectory_points', PointArray, queue_size=10)
+	raw_pub = rospy.Publisher('/raw_movement_points', Point, queue_size=10)
 	
-
+	msg = PointArray()
 	while(not rospy.is_shutdown()):
 		if (not movement_recording and not invalid_movement):
-
+			for i in xrange(len(x)):
+				point = Point()
+				point.x = x[i]
+				point.y = y[i]
+				point.z = z[i]
+				raw_pub.publish(point)
+				rospy.sleep(0.05)
 			if filter_flag:
 				try:
 					rospy.wait_for_service(filter_service_name)
@@ -119,6 +127,7 @@ def movement_detection_node(start_threshold=24):
 					x = resp.x
 					y = resp.y
 					z = resp.z
+					# t = resp.t
 					rospy.loginfo("Filtered the points")
 				except rospy.ServiceException, e:
 					rospy.logerr("Cleaning service call failed: %s"%e)				
@@ -135,7 +144,15 @@ def movement_detection_node(start_threshold=24):
 				except rospy.ServiceException, e:
 					rospy.logerr("Service call failed: %s"%e)	
 
+			for i in xrange(len(x)):
+				point = Point()
+				point.x = x[i]
+				point.y = y[i]
+				point.z = z[i]
+				msg.points.append(point)
+			pub.publish(msg)
 
+			msg.points = []
 			movement_recording = True
 			movement_start = False
 			movement_end = False
