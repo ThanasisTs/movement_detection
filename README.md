@@ -21,5 +21,3 @@ To check the functionality realtime:
 The arguments of the launch file are the following:
 * `smooth`: True if you want to smooth the trajectory (default FALSE)
 * `filter`: True if you want to remove redundant points (default FALSE)
-* `start_threshold`: An integer which specifies the number of consecutive points used by the motion detection algorithm
-(default 24)
