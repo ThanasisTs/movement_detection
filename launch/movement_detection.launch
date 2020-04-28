@@ -2,7 +2,6 @@
 <launch>
 	<arg name="filter" default="false"/>
 	<arg name="smooth" default="false"/>
-	<arg name="start_threshold" default="24"/>
 
 	<node name="movement_detection_node" type="movement_detection.py" pkg="movement_detection" output="screen" respawn="false">
 		<param name="smooth" value="$(arg smooth)"/>
