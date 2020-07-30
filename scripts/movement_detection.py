@@ -6,7 +6,7 @@ from geometry_msgs.msg import Point
 from trajectory_process_utils_srvs.srv import *
 
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 xRaw, yRaw, zRaw = [], [], []
 xV_tmp, yV_tmp, zV_tmp, tV_tmp = [], [], [], []
@@ -18,29 +18,35 @@ movement_end = False
 movement_recording = True
 invalid_movement = False
 num_outliers, num_points_std, std_threshold = None, None, None
-
+timenow = None
+times = []
 def callback(data, args):
-	global xRaw, yRaw, zRaw, x, y, z, t, xV_tmp, yV_tmp, zV_tmp, tV_tmp, movement_start, movement_end, count, movement_recording, outliers_count, invalid_movement, num_points_std, std_threshold, num_outliers
+	global timenow, xRaw, yRaw, zRaw, x, y, z, t, xV_tmp, yV_tmp, zV_tmp, tV_tmp, movement_start, movement_end, count, movement_recording, outliers_count, invalid_movement, num_points_std, std_threshold, num_outliers
 	if movement_recording:
 
 		# Comment this block of code if not using input of type geometry_msgs/Point 
-		x_tmp = data.x
-		y_tmp = data.y
-		z_tmp = data.z
-		timestamp = rospy.get_time()
-		count += 1
+		# x_tmp = data.x
+		# y_tmp = data.y
+		# z_tmp = data.z
+		# timestamp = rospy.get_time()
+		# count += 1
+		try:
+			rospy.loginfo("Time duration: %f"%(rospy.Time.now().to_sec() - timenow))
+			times.append(rospy.Time.now().to_sec() - timenow)
+		except Exception as e:
+			rospy.logwarn(e)
+		timenow = rospy.Time.now().to_sec()
 
 		# Uncomment this block of code when using input of type Keypoints_list
-		# for i in range(len(data.keypoints)):
-		# 	if (data.keypoints[i].name == "RWrist"):
-		# 		x_tmp = data.keypoints[i].points.point.x
-		# 		y_tmp = data.keypoints[i].points.point.y
-		# 		z_tmp = data.keypoints[i].points.point.z
-		# 		timestamp = rospy.get_time()
-		# 		count += 1
-		# 		break
+		for i in range(len(data.keypoints)):
+			if (data.keypoints[i].name == "RWrist"):
+				x_tmp = data.keypoints[i].points.point.x
+				y_tmp = data.keypoints[i].points.point.y
+				z_tmp = data.keypoints[i].points.point.z
+				timestamp = rospy.get_time()
+				count += 1
+				break
 		if x_tmp != 0 and y_tmp != 0 and z_tmp != 0:
-			# print len(xRaw)
 			if len(xRaw) == 0 or (len(xRaw) >= 1 and abs(xRaw[-1] - x_tmp) < 0.1 and abs(yRaw[-1] - y_tmp) < 0.1 and abs(zRaw[-1] - z_tmp) < 0.1):
 				xRaw.append(x_tmp)
 				yRaw.append(y_tmp)
@@ -82,11 +88,12 @@ def callback(data, args):
 					rospy.logwarn("Invalid movement. Please record a new movement")
 					invalid_movement = True
 					movement_recording = False
-
+	# else:
+	# 	rospy.logerr("Cannot record movement")
 					
 def movement_detection_node():
 	rospy.init_node("movement_detection_node")
-	global x, y, z, t, xRaw, yRaw, zRaw, xV_tmp, yV_tmp, zV_tmp, tV_tmp, movement_recording, movement_start, movement_end, count, invalid_movement, outliers_count, num_points_std, std_threshold, num_outliers
+	global times, x, y, z, t, xRaw, yRaw, zRaw, xV_tmp, yV_tmp, zV_tmp, tV_tmp, movement_recording, movement_start, movement_end, count, invalid_movement, outliers_count, num_points_std, std_threshold, num_outliers
 	rospy.loginfo("Ready to record NEW movement")
 	
 	smooth_flag = rospy.get_param("movement_detection_node/smooth", False)
@@ -99,18 +106,26 @@ def movement_detection_node():
 
 	# Use the following subscription if you use the movement detection function
 	# using Openpose and the custom message Keypoint3d_list
-	# sub = rospy.Subscriber('topic_transform', Keypoint3d_list, callback)
+	sub = rospy.Subscriber('raw_points_online', Keypoint3d_list, callback, num_points_std)
 	
 	# Use the following subscription if you use the movement detection function
 	# using a geometry_msgs/Point msg for each point
-	sub = rospy.Subscriber('raw_points', Point, callback, num_points_std)
+	# sub = rospy.Subscriber('raw_points', Point, callback, num_points_std)
 	pub = rospy.Publisher('/trajectory_points', PointArray, queue_size=10)
 	raw_pub = rospy.Publisher('/raw_movement_points', Point, queue_size=10)
-	
+	x_raw, y_raw, z_raw = [], [], []
+
 	msg = PointArray()
-	while(not rospy.is_shutdown()):
+	while not rospy.is_shutdown():
 		if (not movement_recording and not invalid_movement):
+			rospy.loginfo("Mean value of time steps: %f"%np.mean(times))
+			times = []
+			timenow = None
 			for i in xrange(len(x)):
+				x_raw.append(x[i])
+				y_raw.append(y[i])
+				z_raw.append(z[i])
+
 				point = Point()
 				point.x = x[i]
 				point.y = y[i]
@@ -140,7 +155,17 @@ def movement_detection_node():
 					z = resp.z_smooth
 					rospy.loginfo("Smoothed the trajectory")
 				except rospy.ServiceException, e:
-					rospy.logerr("Service call failed: %s"%e)	
+					rospy.logerr("Smoothing service call failed: %s"%e)	
+
+			fig = plt.figure()
+			ax = plt.axes()
+			ax.scatter(x_raw, y_raw, c='blue', s=20)			
+			ax.scatter(x, y, c='orange', s=20)
+			ax.set_xlabel('x(m)')
+			ax.set_ylabel('y(m)')
+			ax.grid()
+			plt.show()
+			x_raw, y_raw, z_raw = [], [], []
 
 			for i in xrange(len(x)):
 				point = Point()
@@ -149,7 +174,7 @@ def movement_detection_node():
 				point.z = z[i]
 				msg.points.append(point)
 			pub.publish(msg)
-
+			# msg_flag = True
 			msg.points = []
 			movement_recording = True
 			movement_start = False
@@ -161,6 +186,7 @@ def movement_detection_node():
 			outliers_count = []			
 			rospy.sleep(1)
 			rospy.loginfo("Ready to record NEW movement")
+
 		if invalid_movement:
 			rospy.loginfo("Sleep for 10 secs to setup the movement")
 			rospy.sleep(10)
